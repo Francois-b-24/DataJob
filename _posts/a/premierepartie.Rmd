@@ -1,0 +1,291 @@
+---
+title: "Description des offres de stage"
+description: |
+  Cet article donne une vue générale sur les offres de stage. On y trouve des informations sur la localisation des annonces et sur les entreprises ayant publiées le plus d'offres.
+preview: img_part1.jpg
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(tidytext)
+library(stringr)
+library(stopwords)
+library(ggplot2)
+library(languagelayeR)
+library(leaflet)
+library(wordcloud)
+library(RColorBrewer)
+library(farver)
+library(proustr)
+library(Xplortext)
+library(ps)
+library(devtools)
+#devtools::install_github("lvaudor/mixr")
+library(mixr)
+library(knitr)
+library(plotly)
+library(viridis)
+
+pal_col<-c("#351F39","#719FB0","#03506F","#729A95","#351F39","#9F5F80","#ECB390","#D4E2D4","#937D14","#D4EBD0","#DAB8F3","#FFBA93","#DF7861","#583D72","#F8F7DE","#D1C145","#C56183","#FF8E71","#543864","#F3C623")
+```
+
+ 
+
+```{r}
+df<-read.csv("Emploi_final.csv")
+df<-df %>% select(poste,lieu,entreprise,texte)
+```
+
+
+```{r}
+#enlève les annonces redondantes
+df<- df %>% filter(!duplicated(texte))
+```
+
+```{r}
+#nettoyage de la base de données
+
+df$poste<-as.character(df$poste)
+df$entreprise <- str_to_lower(df$entreprise)
+df$poste <- str_to_lower(df$poste)
+df$texte <- str_to_lower(df$texte)
+df$lieu <- str_to_lower(df$lieu)
+df$poste <- str_replace_all(iconv(df$poste, from = 'UTF-8', to = 'ASCII//TRANSLIT'),"[[:punct:]]","")
+
+df$lieu<-str_replace_all(iconv(df$lieu, from = 'UTF-8'),"[[:digit:]]","")
+df$lieu<-str_replace_all(df$lieu,"[:punct:]", ' ')
+df$lieu<-gsub("\\s+", " ", gsub("^\\s+|\\s+$", "", df$lieu))
+```
+
+```{r}
+# identification des différents postes
+
+df <- df %>%
+  mutate(Metier=case_when(
+    str_detect(df$poste,"business analyst") ~ "analyst",
+    str_detect(df$poste,"data analyst") ~ "analyst",
+    str_detect(df$poste,"analyst") ~ "analyst",
+    str_detect(df$poste,"reporting") ~ "analyst",
+    str_detect(df$poste,"consultant") ~ "analyst",
+    str_detect(df$poste,"data scientist") ~ "scientist",
+    str_detect(df$poste,"science") ~ "scientist",
+    str_detect(df$poste,"machine learning") ~ "scientist",
+    str_detect(df$poste,"engineer") ~ "engineer",
+    str_detect(df$poste,"ingenieur") ~ "engineer",
+    str_detect(df$poste,"developpeur") ~ "engineer",
+    str_detect(df$poste,"développement") ~ "engineer",
+    str_detect(df$poste,"developer") ~ "engineer"
+  ))
+
+```
+
+```{r}
+#enleve les lignes dont le poste n'a pas été identifié precedemment
+df <- df %>%
+  select(Metier,lieu,entreprise,texte) %>%
+  filter(!is.na(Metier))
+```
+
+```{r}
+# découpage de la base de données selon les différents postes
+
+data_analyst <- df %>% filter(Metier=="analyst")
+data_scientist <- df %>% filter(Metier=="scientist")
+data_engineer <- df %>% filter(Metier=="engineer")
+```
+
+
+```{r}
+donnee<-read.csv("villes.csv",sep=';',header = FALSE)
+donnee <- donnee %>% select(V4,V20,V21)
+donnee <- donnee %>% rename("longitude"= V20, "latitude"=V21, "ville"=V4)
+
+donnee$ville<-str_to_lower(donnee$ville)
+donnee$ville<-str_replace_all(donnee$ville,"[:punct:]", ' ')
+colnames(donnee)<-c("lieu","longitude","latitude")
+donnee<- donnee %>% filter(!duplicated(lieu))
+df<-df %>% left_join(donnee,by=c("lieu"))
+```
+
+
+```{r}
+tab_int <-df %>%
+  select(lieu) %>%
+  group_by(lieu) %>%
+  summarise(effectif=n())
+
+tab_map <-tab_int %>% left_join(donnee,by=c("lieu")) 
+```
+
+Notre étude a été réalisée sur des annonces postée sur le site **Indeed**. Les offres de stages ont été récupérées au fil du mois de Janvier, Février et Mars 2021. Nous n'avons pas mis de conditions particulières quant au lieu de l'offre et aux entreprises. A terme, notre base de données est constituée de **1527 annonces** correspondant à des offres de stages pour les métiers de **Data Analyst, Data Scientist et Data Engineer**. 
+
+Les informations recueillies pour les différentes annonces sont les suivantes : **l'intitulé du poste, l'entreprise offrant le stage, le lieu du stage et le texte de l'annonce**. 
+
+Dans la suite, nous allons nous intéresser plus précisémment à la localisation des annonces et aux entreprises ayant posté ces offres. 
+
+&nbsp;
+
+## Localisation des annonces
+
+
+
+```{r,fig.width=8,fig.height=8}
+fr <- map_data("world") %>% filter(region=="France")
+
+mappy<-tab_map %>% select(lieu,effectif,longitude,latitude)%>%group_by(lieu) %>% summarise(effectif=sum(effectif),longitude=mean(longitude),latitude=mean(latitude)) 
+mappy$effectif[mappy$lieu=="paris"]<-mappy$effectif[mappy$lieu=="paris"] + mappy$effectif[mappy$lieu=="paris e"]
+
+mappy<-mappy %>% mutate(categ=case_when(
+  effectif<=1 ~ "1",
+  effectif >1 & effectif <=10 ~ "10",
+  effectif>10 & effectif <=50 ~ "50",
+  effectif>50 & effectif <=100 ~"100", 
+  effectif>100 ~ "500"
+))
+
+breaks_eff<-c(1,10,50,100,500)
+mappy$categ<-as.integer(mappy$categ)
+ggplot() +
+  geom_polygon(data = fr, aes(x=long, y = lat, group = group), fill="grey", alpha=0.3) +
+  geom_point(data=mappy,aes(x=longitude,y=latitude,color=categ,size=categ), alpha=0.7) +
+  scale_size_continuous(name="Nombre d'offres", trans="log", range=c(1,12), breaks=breaks_eff)+ 
+  scale_alpha_continuous(name="Nombre d'offres", trans="log", range=c(0.1, .9), breaks=breaks_eff)+
+  scale_color_viridis(option="inferno", trans="log", breaks=breaks_eff, name="Nombre d'offres",begin=0,end = 0.9,direction=-1)+
+  theme_void()+
+  coord_map()+
+    guides(colour = guide_legend()) +
+    ggtitle("Offres de stages") +
+    theme(
+      legend.title = element_text(size = 8),
+      legend.position = "left",
+      text = element_text(color = "#22211d"),
+      plot.background = element_rect(fill = "white", color = NA), 
+      panel.background = element_rect(fill = "white", color = NA), 
+      legend.background = element_rect(fill = "#f5f5f2", color = NA),
+      plot.title = element_text(size= 15, hjust=0.1, color = "#4e4d47", margin = margin(b = -0.1, t = 0.5, l = 1, unit = "cm")),
+    )
+
+```
+
+
+&nbsp;
+ 
+ 
+Nous pouvons observer ci-contre la localisation des annonces de notre base de données sur le territoire national. Globalement, nous pouvons dire que des annonces sont présentes un peu partout sur le territoire avec des zones de concentration plus ou moins importantes. 
+
+Concernant la concentration des annonces, nous pouvons observer une faible concentration dans la **diagonale du vide**, endroits assez éloignés des grandes villes françaises. Les annonces sont davantage concentrées sur les côtes françaises, en Ile de France et dans les grandes villes. 
+
+Les zones de forte concentration sont les suivantes : **Ile de France, Nantes, Bordeaux, Lyon, Marseille et Toulouse**. 
+
+Ce que l'on peut conclure de cette carte est que les métiers de la data sont les plus recherchés dans les **grandes villes françaises** où est en général présent le siège social des entreprises et les start-up innovantes.  
+
+
+
+&nbsp;
+ 
+
+## Entreprise 
+
+<div align="center">
+```{r,message=FALSE,warning=FALSE,fig.height=6,fig.width=6}
+library(packcircles)
+
+ent<-df%>%
+  group_by(entreprise)%>%
+  summarise(effectifs=n())%>%
+  arrange(desc(effectifs))
+
+ent<-ent[0:20,]
+pck<-circleProgressiveLayout(ent$effectifs,sizetype = 'area')
+
+
+mydata<-cbind(ent,pck)
+mydata$entreprise<- str_to_title(mydata$entreprise)
+mydata$entreprise[mydata$entreprise=="Groupe Crédit Agricole"]<-"Crédit A."
+mydata$entreprise[mydata$entreprise=="Thales Group"]<-"Thales"
+mydata$entreprise[mydata$entreprise=="Dassault Systèmes"]<-"Dassault Syst."
+mydata$entreprise[mydata$entreprise=="Schneider Electric"]<-"Scheneider Elec."
+mydata$entreprise[mydata$entreprise=="Data Recrutement"]<-"Data Recrut."
+myplotcord<-circleLayoutVertices(pck)
+colo<-c("#543864","#03506F","#937D14","#719FB0","#729A95","#729A95","#D1C145","#D1C145","#D1C145","#D1C145","#B09CC4","#B09CC4","#D4E2D4","#D4EBD0","#D4EBD0","#F8F7DE","#F8F7DE","#F8F7DE","#F8F7DE","#F8F7DE")
+
+ggplot()+
+  geom_polygon(data=myplotcord,aes(x,y,group=id,fill=as.factor(id)))+
+  geom_text(data=mydata,aes(x,y,size=effectifs,label=entreprise))+
+  geom_text(data=mydata,aes(x,y-0.6,size=5,label=paste(effectifs,"annonces")))+
+  scale_size_continuous(range = c(2,5))+ 
+  coord_equal()+
+  theme_void()+
+  theme(legend.position = "none")+
+  scale_fill_manual(values=colo)+
+  ggtitle("Top 20 des entreprises ayant déposés le plus d'offres")
+
+```
+</div>
+
+&nbsp;
+
+
+Les emplois du Big data sont de plus en plus nombreux. Les entreprises de tous les secteurs cherchent désormais à exploiter les données à leur disposition pour aiguiller leur stratégie de développement. 
+
+Nous nous sommes intéréssés ici aux entreprises ayant postés le plus d'annonces durant la période d'intérêt. Les principales entreprises dans notre base de données sont les suivantes : **Axa, Thales, Chanel, Viseo**. Durant le premier trimestre de 2021, Axa a déposé 27 annonces, Thales 20, Chanel 15 et Viseo 14. 
+
+*Que peut-on dire sur ces entreprises ?* 
+
+Axa est un groupe international français spécialisé dans l'assurance et dans la gestion d'actifs. 
+Thales est un groupe d'électronique spécialisée dans l'aérospatiale, la défense, la sécurité et le transport terrestre. 
+Chanel est un entreprise spécialisée dans la haute couture et dans divers produits de luxe. 
+Viseo conseille les entreprises dans les nouvelles règles du jeu de la communication et de la relation client digitale et développe de nouveaux supports de communication et de relation.
+
+Ceci est la preuve que les métiers de la data sont présents dans bon nombre de **secteurs très différents**. 
+
+
+&nbsp;
+
+&nbsp;
+
+
+## Identification des 3 métiers de la data 
+
+Pour rappel, nous avons 1527 offres de stages dans notre base de données. 
+
+Selon l'intitulé de l'offre de stage, nous avons classifié les annonces dans un des trois métiers de la data.
+Au total, nous avons **600** annonces correspondant à une offre de stage de Data Analyst, **516** correspondant à une offre de Data Engineer et **411** correspondant à une offre de Data Scientist. 
+
+Le fait d'avoir classifié les annonces selon les 3 métiers va nous permettre par la suite d'explorer les **similiratiés et les différences** entre ces trois postes.
+
+```{r,fig.width=10}
+library(kableExtra)
+tot<-df%>%
+  group_by(Metier)%>%
+  summarise(Effectifs=n())
+tot$Metier<-str_to_title(tot$Metier)
+tot %>% kbl(caption = "Effectifs des différents postes")%>%
+  kable_styling(bootstrap_options = "striped")%>%
+  column_spec(1,color=c("#5299A5","#46427C","#5273A5"),bold = T)
+
+
+```
+
+
+&nbsp;
+
+
+
+
+<p align="center">
+<a href="http://mecen-univ-tours.fr/">
+<img src="mecen.png" height="40" width="80">
+</a>
+</p>

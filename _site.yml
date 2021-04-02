@@ -1,0 +1,17 @@
+name: "Essai"
+title: "Data's jobs"
+description: |
+  My Website
+output_dir: "_site"
+theme: aline_theme.css
+navbar:
+  right:
+    - text: "A propos"
+      href: index.html
+    - text: "Analyses"
+      href: blog.html
+    - text: "Résumé"
+      href: about.html
+
+output: distill::distill_article
+  

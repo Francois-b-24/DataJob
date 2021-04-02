@@ -1,0 +1,360 @@
+---
+title: "Caractérisation des offres de stages"
+description: | 
+  Cet article présente une étude plus détaillée des annonces par le biais de l'analyse des correspondances textuelles pour faire ressortir les similarités et différences entre les métiers. 
+preview: img_part3.png
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(tidytext)
+library(stringr)
+library(stopwords)
+library(ggplot2)
+library(languagelayeR)
+library(leaflet)
+library(wordcloud)
+library(RColorBrewer)
+library(farver)
+library(proustr)
+library(Xplortext)
+library(ps)
+library(devtools)
+#devtools::install_github("lvaudor/mixr")
+library(mixr)
+library(knitr)
+library(plotly)
+library(viridis)
+library(wordcloud2)
+library(ggpubr)
+library(ggradar)
+library(scales)
+```
+
+
+```{r}
+df<-read.csv("Emploi_final.csv")
+df<-df %>% select(poste,lieu,entreprise,texte)
+```
+
+
+```{r}
+#enlève les annonces redondantes
+df<- df %>% filter(!duplicated(texte))
+```
+
+```{r}
+#nettoyage de la base de données
+
+df$poste<-as.character(df$poste)
+df$entreprise <- str_to_lower(df$entreprise)
+df$poste <- str_to_lower(df$poste)
+df$texte <- str_to_lower(df$texte)
+df$lieu <- str_to_lower(df$lieu)
+df$poste <- str_replace_all(iconv(df$poste, from = 'UTF-8', to = 'ASCII//TRANSLIT'),"[[:punct:]]","")
+
+df$lieu<-str_replace_all(iconv(df$lieu, from = 'UTF-8'),"[[:digit:]]","")
+df$lieu<-str_replace_all(df$lieu,"[:punct:]", ' ')
+df$lieu<-gsub("\\s+", " ", gsub("^\\s+|\\s+$", "", df$lieu))
+```
+
+```{r}
+# identification des différents postes
+
+df <- df %>%
+  mutate(Metier=case_when(
+    str_detect(df$poste,"business analyst") ~ "analyst",
+    str_detect(df$poste,"data analyst") ~ "analyst",
+    str_detect(df$poste,"analyst") ~ "analyst",
+    str_detect(df$poste,"reporting") ~ "analyst",
+    str_detect(df$poste,"consultant") ~ "analyst",
+    str_detect(df$poste,"data scientist") ~ "scientist",
+    str_detect(df$poste,"science") ~ "scientist",
+    str_detect(df$poste,"machine learning") ~ "scientist",
+    str_detect(df$poste,"engineer") ~ "engineer",
+    str_detect(df$poste,"ingenieur") ~ "engineer",
+    str_detect(df$poste,"developpeur") ~ "engineer",
+    str_detect(df$poste,"développement") ~ "engineer",
+    str_detect(df$poste,"developer") ~ "engineer"
+  ))
+
+```
+
+```{r}
+#enleve les lignes dont le poste n'a pas été identifié precedemment
+df <- df %>%
+  select(Metier,lieu,entreprise,texte) %>%
+  filter(!is.na(Metier))
+```
+
+```{r}
+# découpage de la base de données selon les différents postes
+
+data_analyst <- df %>% filter(Metier=="analyst")
+data_scientist <- df %>% filter(Metier=="scientist")
+data_engineer <- df %>% filter(Metier=="engineer")
+```
+
+
+
+# Comparaison entre les postes 
+
+
+```{r}
+
+poste<-c("Analyst","Scientist","Engineer")
+reporting<-c(0.38,0.06,0.15)
+performance<-c(0.37,0.32,0.33)
+informatique<-c(0.29,0.31,0.29)
+statistiques<-c(0.24,0.42,0.05)
+api<-c(0.21,0.16,0.12)
+visualisation<-c(0.21,0.16,0.12)
+ml<-c(0.09,0.58,0.24)
+modeles<-c(0.12,0.39,0.11)
+big_data<-c(0.15,0.37,0.38)
+cloud<-c(0.12,0.27,0.43)
+
+radar_chart<-cbind.data.frame(poste,reporting,performance,statistiques,informatique,api,visualisation,ml,big_data,modeles,cloud)
+
+comp1<-mutate_at(radar_chart,vars(-poste),rescale) %>% ggradar(legend.position = "bottom",base.size = 5,background.circle.transparency = 0.1,axis.label.size=3,grid.label.size=4,gridline.label.offset = -0.05,group.line.width = 1, group.point.size = 1,label.gridline.min = FALSE,axis.line.colour = "white",gridline.mid.colour = "grey",legend.text.size = 10,group.colours = c("#5299A5","#E9D67C","#46427C"))+
+  ggtitle("Compétences techniques") + theme(plot.title = element_text(size=12))
+                                                                                        
+```
+
+
+```{r}
+competences<-c("dynamique","curieux","force de proposition","synthese","rigueur","travail en equipe","motive","bon relationnel","autonomie","organise")
+```
+
+
+```{r}
+dynamique<-c(sum(str_detect(data_analyst$texte,"dynamique"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"dynamique"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"dynamique"))/nrow(data_engineer))
+curieux<-c(sum(str_detect(data_analyst$texte,"curieux"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"curieux"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"curieux"))/nrow(data_engineer))
+entreprenant<-c(sum(str_detect(data_analyst$texte,"force de proposition"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"force de proposition"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"force de proposition"))/nrow(data_engineer))
+rigueur<-c(sum(str_detect(data_analyst$texte,"rigueur"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"rigueur"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"rigueur"))/nrow(data_engineer))
+synthese<-c(sum(str_detect(data_analyst$texte,"synthese"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"synthese"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"synthese"))/nrow(data_engineer))
+collaboratif<-c(sum(str_detect(data_analyst$texte,"travail en equipe"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"travail en equipe"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"travail en equipe"))/nrow(data_engineer))
+motive<-c(sum(str_detect(data_analyst$texte,"motive"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"motive"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"motive"))/nrow(data_engineer))
+relationnel<-c(sum(str_detect(data_analyst$texte,"bon relationnel"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"bon relationnel"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"bon relationnel"))/nrow(data_engineer))
+autonomie<-c(sum(str_detect(data_analyst$texte,"autonomie"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"autonomie"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"autonomie"))/nrow(data_engineer))
+organise<-c(sum(str_detect(data_analyst$texte,"organise"))/nrow(data_analyst),sum(str_detect(data_scientist$texte,"organise"))/nrow(data_scientist),sum(str_detect(data_engineer$texte,"organise"))/nrow(data_engineer))
+
+
+radar_chart2<-cbind.data.frame(poste,dynamique,curieux,entreprenant,rigueur,synthese,collaboratif,motive,relationnel,autonomie,organise)
+
+comp2<-mutate_at(radar_chart2,vars(-poste),rescale) %>% ggradar(legend.position = "bottom",base.size = 5,background.circle.transparency = 0.1,axis.label.size=3,grid.label.size=4,gridline.label.offset = -0.05,group.line.width = 1, group.point.size = 1,label.gridline.min = FALSE,axis.line.colour = "white",gridline.mid.colour = "grey",legend.text.size = 10,group.colours = c("#5299A5","#E9D67C","#46427C"))+
+  ggtitle("Qualités humaines") + theme(plot.title = element_text(size=12))
+     
+```
+
+
+
+```{r,fig.width=11,fig.height=6}
+ggarrange(comp1,comp2,nrow = 1,common.legend = TRUE,legend = "bottom")
+```
+
+
+Grâce aux informations recueillies dans nos données, nous allons pouvoir dresser une liste de compétences techniques et de qualités humaines associées aux différents métiers que nous étudions. Pour ce faire nous utilisons un **graphique radar**, également appelé **graphique araignée** est utilisé pour visualiser les valeurs ou scores attribués à un individu sur plusieurs variables quantitatives, où chaque variable correspond à un axe spécifique. 
+
+Les compétences techniques que doit avoir un data analyst sont le reporting, la visualtion des données et moyennement les statistiques. Il doit être dynamique, curieux, oragnisé, autonome, rigoureux et avoir le sens du relationnel et un esprit de synthèse. 
+
+Les data engineer doivent généralement avoir des connaissances concernant les technologies du Big Data, du cloud computing. Il doit être motivé, oragnisé mais doit aussi savoir travailler en équipe. 
+
+Quant au data scientist, il doit avoir de très bonnes connaissances en informatique et tout ce qui concerne les technologies du Big Data, la mise en place de modèles statistiques notamment de machine learning. Il doit être dynmique, autonome, avoir une force de proposition, le sens du relationnel et doit savoir travail en équipe. 
+
+```{r}
+df2 <-df %>% unnest_tokens(word, texte) 
+
+#stopwords français 
+word<-as.data.frame(proust_stopwords())
+colnames(word)<-c("word")
+
+#stopwords anglais
+word2<-as.data.frame(stopwords("en"))
+colnames(word2)<-c("word")
+
+df2 <- df2 %>% anti_join(word, by = c("word" = "word")) 
+df2 <- df2%>% anti_join(word2, by = c("word" = "word")) 
+```
+
+```{r}
+lex_lm <- get_lexicon("fr")
+
+df_lem <- left_join(df2,lex_lm,by=c("word"="word"))
+```
+
+```{r}
+######## conservation que des noms #########
+df_lem<- df_lem %>%
+   filter(type %in% c("nom"))
+
+df_lem<-df_lem %>% select(Metier,lieu,entreprise,lemma,type)
+
+```
+
+&nbsp;
+
+&nbsp; 
+
+# Analyse des Correspondances Textuelles 
+
+Les objectifs principaux de l'Analyse des Correspondances Textuelles sont d'étudier et de visualier les proximités entre documents, dans notre cas il s'agit des offres d'emploi concernant les data engineers, data scientists et data analysts. Elle permet également de visualiser les proximités entre mots ainsi que les associations entre mots et documents. 
+
+```{r}
+#save(res.TD, file="res.TD.Rdata")
+#res.TD<-TextData(df_lem,var.text=4, idiom="fr", var.agg="Metier", Fmin=250, Fmax=600,Dmin=50, stop.word.tm=TRUE,graph=FALSE)
+load("res.TD.Rdata")
+```
+
+
+
+### Représentations des métiers 
+
+
+```{r, fig.height=3., fig.width=5.5}
+res.LexCA<-LexCA(res.TD, graph=FALSE)
+
+profil_ligne<-as.data.frame(res.LexCA$row$coord)
+
+a <- list(
+  x = profil_ligne$`Dim 1`-0.01,
+  y = profil_ligne$`Dim 2`-0.02,
+  text = rownames(profil_ligne),
+  xref = "x",
+  yref = "y",
+  showarrow = F,
+  font = list(size = 12,color="#937D14")
+)
+
+ggplotly(ggplot() +
+  geom_point(data = profil_ligne, 
+             aes(`Dim 1`, `Dim 2`),color="#937D14")+
+  theme_minimal()+
+  geom_hline(yintercept=0,color="gray")+
+  geom_vline(xintercept = 0,color="grey")+
+  xlab("Dim 1 (67.11%)")+
+  ylab("Dim 2 (32.89%)")+
+  theme(legend.position = "none")) %>%
+  layout(title = 'Représentation des métiers',
+         xaxis = list(showgrid = FALSE),
+         yaxis = list(showgrid = FALSE),
+         font=list(size=10),
+         paper_bgcolor = 'rgb(243, 247, 246)',plot_bgcolor = 'rgb(243, 247, 246)',
+         annotations=a)
+
+
+```
+
+
+Le plan factoriel formé par les axes 1 et 2 résume toute l'information contenue dans notre jeu de données. Cela nous permet donc d'avoir une représentation de très bonne qualité. 
+
+
+Le premier axe range les métiers par niveau de technicité. Plus on est situé à gauche, plus les compétences techniques demandées sont élevées et inversement. En effet, un data engineer est quelqu'un ayant un background technique (en développement logiciel le plus fréquemment), le data scientist quant à lui est chargé de la gestion, de l'analyse et de l'exploitation des données massives d'une entreprise. A l'ère du Big Data, le data scientist peut être considéré comme une évolution du Data analyst dans le sens où il possède des compétences techniques que n'aurait pas un data analyst. 
+Concernant le second axe, on observe qu'il sépare clairement les 3 métiers. 
+
+
+&nbsp;
+ 
+### Représentation simultanée 
+
+
+```{r, fig.height=5, fig.width=10}
+res.LexCA<-LexCA(res.TD, graph=FALSE)
+
+profil_colonne<-as.data.frame(res.LexCA$col$coord)
+
+a <- list(
+  x = profil_colonne$`Dim 1`,
+  y = profil_colonne$`Dim 2`+0.03,
+  text = rownames(profil_colonne),
+  xref = "x",
+  yref = "y", showarrow = F,font = list(size = 9,color="#1F667D"))
+
+b <- list(
+  x = profil_ligne$`Dim 1`,
+  y = profil_ligne$`Dim 2`+0.04,
+  text = rownames(profil_ligne),
+  xref = "x",
+  yref = "y", showarrow = F,font = list(size = 12,color="#937D14"))
+
+ggplotly(ggplot() +
+  geom_point(data = profil_colonne, aes(`Dim 1`, `Dim 2`),color="#1F667D",size=0.5)+
+  geom_point(data=profil_ligne,aes(`Dim 1`, `Dim 2`),color="#937D14",size=1.5,shape=15)+
+  geom_hline(yintercept=0,color="gray")+
+  geom_vline(xintercept = 0,color="grey")+
+  xlab("Dim 1 (67.11%)")+
+  ylab("Dim 2 (32.89%)")+
+  theme(legend.position = "none"))%>%
+  layout(title = 'Représentation simultannée',
+         xaxis = list(showgrid = FALSE),
+         yaxis = list(showgrid = FALSE),
+         font=list(size=10),
+         paper_bgcolor = 'rgb(243, 247, 246)',plot_bgcolor = 'rgb(243, 247, 246)',
+         annotations=a)%>%
+  layout(annotations=b)
+
+```
+
+
+Cette représentation graphique nous permet d'observer la superposition des différents métiers et des mots qui s'associent à ces derniers. En effet, cette représentation graphique tient compte des relations des barycentriques. En d'autres termes, les mots situés au centre du nuage sont communément employés dans les offres d'emplois de ces trois profils et les mots qui s'éloignent du centre sont les mots qui sont propres à un profil particulier, à savoir ici : data analyst, data scientist et data engineer. Ainsi le premier axe oppose les mots **machine**, **science** et **modèle**, sur-employé pour les profils de type data scientist et les mots **marketing**, **gestion**, **tableau** et **BI** sur-employés par les profils de types data analyst. Cela vient confirmer l'interprétation que nous avions faite du premier axe. C'est-à-dire qu'il sépare les catégories selon le degré de technicité lié au profil. Concernant le poste de data engineer, qui requiert également des compétences assez techniques, on observe bien son opposition par rapport au profil data analyst et une proximité avec le poste de data scientist. Ainsi, des mots tels que **technologie**, **application** et **source** s'avèrent être sur-employé dans les offres concernant ce profil. 
+
+&nbsp;
+
+### Représentation des mots les plus contributifs
+
+```{r, fig.height=5, fig.width=7}
+
+a <- list(
+  x = profil_colonne[c(47,13,17,24,39,20,42),]$`Dim 1`,
+  y = profil_colonne[c(47,13,17,24,39,20,42),]$`Dim 2`+0.03,
+  text = rownames(profil_colonne[c(47,13,17,24,39,20,42),]),
+  xref = "x",
+  yref = "y", showarrow = F,font = list(size = 9,color="#1F667D"))
+
+b <- list(
+  x = profil_ligne$`Dim 1`,
+  y = profil_ligne$`Dim 2`+0.04,
+  text = rownames(profil_ligne),
+  xref = "x",
+  yref = "y", showarrow = F,font = list(size = 12,color="#937D14"))
+
+ggplotly(ggplot() +
+  geom_point(data = profil_colonne[c(47,13,17,24,39,20,42),], aes(`Dim 1`, `Dim 2`),color="#1F667D",size=0.5)+
+  geom_point(data=profil_ligne,aes(`Dim 1`, `Dim 2`),color="#937D14",size=1.5,shape=15)+     geom_hline(yintercept=0,color="gray")+
+  geom_vline(xintercept = 0,color="grey")+
+  xlab("Dim 1 (67.11%)")+
+  ylab("Dim 2 (32.89%)")+
+  theme(legend.position = "none")) %>%
+  layout(title = 'Mots les plus contributifs',
+         xaxis = list(showgrid = FALSE),
+         yaxis = list(showgrid = FALSE),
+         font=list(size=10),
+         paper_bgcolor = 'rgb(243, 247, 246)',plot_bgcolor = 'rgb(243, 247, 246)',
+         annotations=a) %>%
+  layout(annotations=b)
+```
+
+
+La représentation des mots les plus contributifs vient confirmer notre analyse réalisée précédemment sur le graphique de la représentation simultanée des métiers et des mots qui s'y associent. En effet, les mots les plus contributifs sont ceux dont le poids à fortement contribué à la construction d'un axe. En d'autres termes, les mots présents sur ce graphique, sont ceux qui apportent le plus d'information. 
+
+Par conséquent, les mots tels que **engineering** et **technologie** sont des mots très employés dans les offres concernant les profils data engineer dont les compétences sont généralement assez techniques telles que l'architecture de base de données ou encore le dévelopemment logiciel. Cependant, ces mots sont moins employés dans des offres concernant le profil de data analyst. De manière inverse, les mots **gestion** et **marketing** sont fortement utilisés dans les offres concernant les data analysts. En effet, de manière générale, son objectif est d'apporter une aide à la décision grâce à la mise en valeur des données grâce à techniques statistiques. Concernant les offres adressées aux profils de type data scientist, les mots qui apparaissent fortement sont **machine** qui fait référence au **machine learning** et **science** qui renvoie à la **data science**. Assez proche du data analyst, le data scientist exploite également les données pour en tirer des informations mais ses compétences en programmation lui permettent d'aller plus loin en proposant notamment des analyses prédictives. 
+
+&nbsp;
+
+
+&nbsp;
+
+<p align="center">
+<a href="http://mecen-univ-tours.fr/">
+<img src="mecen.png" height="40" width="80">
+</a>
+</p>

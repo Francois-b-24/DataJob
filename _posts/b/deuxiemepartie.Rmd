@@ -1,0 +1,447 @@
+---
+title: "Découverte des métiers de la data"
+description: |
+  Cet article nous fait entrer dans le détail de nos 3 métiers de référence : Data Analyst, Data Scientist et Data Engineer.
+  On y retrouve notamment les compétences techniques et informatiques demandées pour ces trois postes.  
+preview: img_part2.jpg
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(tidytext)
+library(stringr)
+library(stopwords)
+library(ggplot2)
+library(languagelayeR)
+library(leaflet)
+library(wordcloud)
+library(RColorBrewer)
+library(farver)
+library(proustr)
+library(Xplortext)
+library(ps)
+library(devtools)
+#devtools::install_github("lvaudor/mixr")
+library(mixr)
+library(knitr)
+library(plotly)
+library(viridis)
+library(wordcloud2)
+library(ggpubr)
+```
+
+
+```{r}
+df<-read.csv("Emploi_final.csv")
+df<-df %>% select(poste,lieu,entreprise,texte)
+```
+
+
+```{r}
+#enlève les annonces redondantes
+df<- df %>% filter(!duplicated(texte))
+```
+
+```{r}
+#nettoyage de la base de données
+
+df$poste<-as.character(df$poste)
+df$entreprise <- str_to_lower(df$entreprise)
+df$poste <- str_to_lower(df$poste)
+df$texte <- str_to_lower(df$texte)
+df$lieu <- str_to_lower(df$lieu)
+df$poste <- str_replace_all(iconv(df$poste, from = 'UTF-8', to = 'ASCII//TRANSLIT'),"[[:punct:]]","")
+
+df$lieu<-str_replace_all(iconv(df$lieu, from = 'UTF-8'),"[[:digit:]]","")
+df$lieu<-str_replace_all(df$lieu,"[:punct:]", ' ')
+df$lieu<-gsub("\\s+", " ", gsub("^\\s+|\\s+$", "", df$lieu))
+```
+
+```{r}
+# identification des différents postes
+
+df <- df %>%
+  mutate(Metier=case_when(
+    str_detect(df$poste,"business analyst") ~ "analyst",
+    str_detect(df$poste,"data analyst") ~ "analyst",
+    str_detect(df$poste,"analyst") ~ "analyst",
+    str_detect(df$poste,"reporting") ~ "analyst",
+    str_detect(df$poste,"consultant") ~ "analyst",
+    str_detect(df$poste,"data scientist") ~ "scientist",
+    str_detect(df$poste,"science") ~ "scientist",
+    str_detect(df$poste,"machine learning") ~ "scientist",
+    str_detect(df$poste,"engineer") ~ "engineer",
+    str_detect(df$poste,"ingenieur") ~ "engineer",
+    str_detect(df$poste,"developpeur") ~ "engineer",
+    str_detect(df$poste,"développement") ~ "engineer",
+    str_detect(df$poste,"developer") ~ "engineer"
+  ))
+
+```
+
+```{r}
+#enleve les lignes dont le poste n'a pas été identifié precedemment
+df <- df %>%
+  select(Metier,lieu,entreprise,texte) %>%
+  filter(!is.na(Metier))
+```
+
+```{r}
+# découpage de la base de données selon les différents postes
+
+data_analyst <- df %>% filter(Metier=="analyst")
+data_scientist <- df %>% filter(Metier=="scientist")
+data_engineer <- df %>% filter(Metier=="engineer")
+```
+
+&nbsp;
+
+# <span style="color: #5299A5;"> <b> Data Analyst </b> </span>
+
+Pour rappel, nous avons 600 annonces correspondant au métier de Data Analyst. 
+
+```{r}
+df2 <-df %>% unnest_tokens(word, texte) 
+
+#stopwords français 
+word<-as.data.frame(proust_stopwords())
+colnames(word)<-c("word")
+
+#stopwords anglais
+word2<-as.data.frame(stopwords("en"))
+colnames(word2)<-c("word")
+
+df2 <- df2 %>% anti_join(word, by = c("word" = "word")) 
+df2 <- df2%>% anti_join(word2, by = c("word" = "word")) 
+```
+
+```{r}
+lex_lm <- get_lexicon("fr")
+
+df_lem <- left_join(df2,lex_lm,by=c("word"="word"))
+
+```
+
+```{r}
+######## conservation que des noms #########
+df_lem<- df_lem %>%
+   filter(type %in% c("nom"))
+
+df_lem<-df_lem %>% select(Metier,lieu,entreprise,lemma,type)
+
+```
+
+```{r}
+mots_ppx<-df_lem %>% count(lemma, sort=TRUE) %>% filter(n<600)
+```
+
+
+```{r}
+mots_frq<-c(mots_ppx$lemma)
+mots_autres<-c("type","stage","profil","design","new","pari","mois","place","science","travail","bac","master","base","niveau","formation","description","temps","date","fin","cadre","job","titre","horaire","nouveau","part","best")
+
+mots_analyst <- df_lem %>% filter(Metier=="analyst") %>% count(lemma, sort=TRUE) %>%filter(lemma %in% mots_frq) %>% filter (!lemma %in% mots_autres) 
+```
+
+### Mots les plus fréquemment utilisés 
+<div align="center">
+```{r}
+pal_col<-c("#351F39","#719FB0","#03506F","#729A95","#351F39","#9F5F80","#ECB390","#D4E2D4","#937D14","#D4EBD0","#DAB8F3","#FFBA93","#DF7861","#583D72","#F8F7DE","#D1C145","#C56183","#FF8E71","#543864","#F3C623")
+
+palette_word<-rep(pal_col,10)
+set.seed(1)
+wordcloud2(mots_analyst[0:300,],minSize = 2,color = palette_word)
+
+```
+
+</div>
+
+&nbsp;
+
+### Compétences clés
+
+```{r}
+#liste des compétences à identifier dans les annonces
+#enlever les accents !!!
+
+competences_tech <-c("business intelligence","machine learning","informatique","economique","statistiques","intelligence artificielle","visualisation","reporting","redaction","kpi","mathematiques","tableau de bord","collecte","etl","nettoyer","graphiques","devops","big data","software engineering","probabilités","scrapping","consolider","consolidation","preparation","key performance indicator","dashboards","performance","etudes de marche","géolocalisation","score","segmentation","feature engineering","nlp","text mining","deep learning","stockage","modeles","cloud","api")
+```
+
+
+```{r}
+total_comp<-rep(0,39)
+for (i in 1:39){
+  total_comp[i]<-sum(str_detect(data_analyst$texte,competences_tech[i]))
+}
+recap_comp1<-cbind.data.frame(competences_tech,total_comp)
+
+for (i in 1:39){
+  total_comp[i]<-sum(str_detect(data_scientist$texte,competences_tech[i]))
+}
+recap_comp2<-cbind.data.frame(competences_tech,total_comp)
+
+for (i in 1:39){
+  total_comp[i]<-sum(str_detect(data_engineer$texte,competences_tech[i]))
+}
+recap_comp3<-cbind.data.frame(competences_tech,total_comp)
+
+recap_comp1$total_comp_freq<-recap_comp1$total_comp/nrow(data_analyst)
+recap_comp2$total_comp_freq<-recap_comp2$total_comp/nrow(data_scientist)
+recap_comp3$total_comp_freq<-recap_comp3$total_comp/nrow(data_engineer)
+
+```
+
+
+```{r}
+recap_comp1$competences_tech<-str_to_title(recap_comp1$competences_tech)
+recap_comp1$competences_tech[recap_comp1$competences_tech=="Business Intelligence"]<-"BI"
+ggplotly(recap_comp1 %>% filter(total_comp_freq>=0.1) %>% ggplot(aes(x=reorder(competences_tech,total_comp_freq), y=total_comp_freq)) +
+  geom_point(color="#5299A5",size=3) + 
+  geom_segment( aes(x=competences_tech, xend=competences_tech, y=0, yend=total_comp_freq),color="grey") + 
+  coord_flip() + 
+  theme_minimal() +
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank())) %>%
+  layout(title = 'Compétences techniques',
+         xaxis = list(showgrid = FALSE, title="%"),
+         yaxis = list(showgrid = FALSE),
+         font=list(size=10),
+         paper_bgcolor = 'rgba(243, 243, 243,0.8)',plot_bgcolor = 'rgba(243, 243, 243,0.2)',
+         annotations = list(x = 0.13 , y = 1.03, text = "Compétences apparaissant dans plus de 10% des offres", showarrow = F, xref='paper', yref='paper'))
+```
+
+
+
+En analysant les données brutes des entreprises, le Data Analyst est capable de dégager des informations très utiles pour appuyer la prise de décision et ainsi prendre une avantage compétitif. Cependant, l'analyse de données nécessite une expertise et des compétences. 
+
+Concernant les compétences techniques les plus demandées dans les annonces, nous identifions deux compétences principales apparaissant dans plus de 35% des offres : **le reporting et l'analyse de la performance**. 
+
+Ensuite, nous retrouvons les compétences "classiques" des métiers de la data qui sont les compétences **informatiques et statistiques** afin de pouvoir réaliser les analyses. On remarque aussi les compétences de **visualisation, de création de dashboards et de KPI** qui apparaissent nécessaires pour les Data Analyst. 
+
+```{r}
+#liste des logiciels à détecter dans les annonces
+
+logiciels<-c("power bi","excel","powerpoint","word","java","hadoop",
+             "spark","sql","vba","qlikview","latex","scala","sas","stata","python","airflow","nosql")
+```
+
+
+```{r}
+total<-rep(0,17)
+for (i in 1:17){
+  total[i]<-sum(str_detect(data_analyst$texte,logiciels[i]))
+}
+recap_logiciels<-cbind.data.frame(logiciels,total)
+
+for (i in 1:17){
+  total[i]<-sum(str_detect(data_scientist$texte,logiciels[i]))
+}
+recap_logiciels2<-cbind.data.frame(logiciels,total)
+
+for (i in 1:17){
+  total[i]<-sum(str_detect(data_engineer$texte,logiciels[i]))
+}
+recap_logiciels3<-cbind.data.frame(logiciels,total)
+
+recap_logiciels$total_freq<-recap_logiciels$total/nrow(data_analyst)
+recap_logiciels2$total_freq<-recap_logiciels2$total/nrow(data_scientist)
+recap_logiciels3$total_freq<-recap_logiciels3$total/nrow(data_engineer)
+```
+
+
+
+
+```{r}
+recap_logiciels$logiciels<-str_to_title(recap_logiciels$logiciels)
+
+ggplotly(recap_logiciels %>% filter(total_freq>0.1) %>%ggplot(aes(x=reorder(logiciels,total_freq), y=total_freq)) +
+  geom_point(color="#5299A5",size=3) + 
+  geom_segment( aes(x=logiciels, xend=logiciels, y=0, yend=total_freq),color="grey") + 
+  coord_flip() + 
+  theme_minimal() +
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank())) %>%
+  layout(title = 'Compétences informatiques',
+         xaxis = list(showgrid = FALSE, title="%"),
+         yaxis = list(showgrid = FALSE),
+         font=list(size=10),
+         paper_bgcolor = 'rgb(243, 247, 246)',plot_bgcolor = 'rgb(243, 247, 246)',
+         annotations = list(x = 0.1 , y = 1.03, text = "Compétences apparaissant dans plus de 10% des offres", showarrow = F, xref='paper', yref='paper'))
+```
+
+
+&nbsp;
+
+Concernant les compétences informatiques, **la maîtrise d'Excel et de SQL** apparaît comme plus que nécessaire car ils sont demandés dans presque 50% des annonces. 
+Concernant les autres langage de programmation, le langage **Python** apparaît dans 35% des annonces. 
+Afin de produire des supports du visualisation, Power BI semble aussi assez demandé.
+
+
+&nbsp;
+
+# <span style="color: #5273A5;"> <b> Data Scientist </b> </span>
+
+Pour rappel, nous avons 411 annonces correspondant au métier de Data Scientist. 
+
+### Mots les plus fréquemment utilisés
+
+<div align="center">
+```{r}
+mots_scientist <-df_lem %>% filter(Metier=="scientist") %>% count(lemma, sort=TRUE) %>% filter(lemma %in% mots_frq) %>% filter (!lemma %in% mots_autres) 
+
+wordcloud2(mots_scientist[0:250,],minSize = 2,color = palette_word)
+```
+
+</div>
+
+### Compétences clés
+
+
+```{r}
+recap_comp2$competences_tech<-str_to_title(recap_comp2$competences_tech)
+ggplotly(recap_comp2 %>% filter(total_comp_freq>=0.1) %>% ggplot(aes(x=reorder(competences_tech,total_comp_freq), y=total_comp_freq)) +
+  geom_point(color="#5273A5",size=3) + 
+  geom_segment( aes(x=competences_tech, xend=competences_tech, y=0, yend=total_comp_freq),color="grey") + 
+  coord_flip() + 
+  theme_minimal() +
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank())) %>%
+  layout(title = 'Compétences techniques',
+         xaxis = list(showgrid = FALSE, title="%"),
+         yaxis = list(showgrid = FALSE),
+         font=list(size=10),
+         paper_bgcolor = 'rgba(243, 243, 243,0.8)',plot_bgcolor = 'rgba(243, 243, 243,0.2)',
+         annotations = list(x = 0.07 , y = 1.03, text = "Compétences apparaissant dans plus de 10% des offres", showarrow = F, xref='paper', yref='paper'))
+```
+
+
+La Data Scientist est un spécialiste de l’analyse brutes de données. Son objectif est de mettre en place des modèles prédictifs mathématiques et statistiques qui constitueront par la suite un outil décisionnel pour les entreprises. A l'inverse du Data Analyst, le Data Scientist essaie de prédire des choses à partir des données existantes alors que le Data Analyst se charge simplement d'explorer les données existantes. Le Data Scientist travaille dans le futur alors que le Data Analyst est dans le présent. 
+
+Concernant les compétences techniques exigées pour un Data Scientist, on retrouve tout naturellement les compétences en **machine Learning** en première position exigées dans plus de 60% des annonces. Aussi, l'on retouve les compétences classiques en **informatiques et satistiques**. 
+
+On retrouve des compétences qui n'apparaissaient pas comme primordiale pour un Data Analyst : **le Deep Leraning, le NLP et la segmentation**. 
+
+
+```{r}
+recap_logiciels2$logiciels<-str_to_title(recap_logiciels2$logiciels)
+ggplotly(recap_logiciels2 %>% filter(total_freq>0.1) %>%ggplot(aes(x=reorder(logiciels,total_freq), y=total_freq)) +
+  geom_point(color="#5273A5",size=3) + 
+  geom_segment(aes(x=logiciels, xend=logiciels, y=0, yend=total_freq),color="grey") + 
+  coord_flip() + 
+  theme_minimal() +
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank()))%>%
+  layout(title = 'Compétences informatiques',
+         xaxis = list(showgrid = FALSE, title="%"),
+         yaxis = list(showgrid = FALSE),
+         font=list(size=10),
+         paper_bgcolor = 'rgb(243, 247, 246)',plot_bgcolor = 'rgb(243, 247, 246)',
+         annotations = list(x = 0.1 , y = 1.03, text = "Compétences apparaissant dans plus de 10% des offres", showarrow = F, xref='paper', yref='paper'))
+```
+
+
+&nbsp;
+
+Du côté des compétences informatiques, le language **Pyhton** est très répandu car il est présent dans presque 80% dans annonces. A l'inverse du Data Analyst, on retrouve **Spark et Hadoop**, logiciels plus orientés "big data". 
+On retrouve tout de même **SQL** dans 40% et **Excel** dans 30% des annonces.
+
+&nbsp;
+
+&nbsp;
+
+
+# <span style="color: #46427C;"> <b> Data Engineer </b> </span> 
+
+Pour rappel, nous avons 516 annonces correspondant au métier de Data Engineer. 
+
+### Mots les plus fréquemment utilisés
+
+<div align="center">
+```{r}
+mots_engineer <-df_lem %>% filter(Metier=="engineer") %>% count(lemma, sort=TRUE) %>%filter(lemma %in% mots_frq) %>% filter (!lemma %in% mots_autres) 
+
+wordcloud2(mots_engineer[0:250,],minSize = 2,color=palette_word)
+```
+
+</div>
+
+&nbsp;
+
+### Compétences clés
+
+
+```{r}
+recap_comp3$competences_tech<-str_to_title(recap_comp3$competences_tech)
+ggplotly(recap_comp3 %>% filter(total_comp_freq>=0.1)%>% ggplot(aes(x=reorder(competences_tech,total_comp_freq), y=total_comp_freq)) +
+  geom_point(color="#46427C",size=3) + 
+  geom_segment( aes(x=competences_tech, xend=competences_tech, y=0, yend=total_comp_freq),color="gray") + 
+  coord_flip() + 
+  theme_minimal() +
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank())) %>%
+  layout(title = 'Compétences techniques',
+         xaxis = list(showgrid = FALSE, title="%"),
+         yaxis = list(showgrid = FALSE),
+         font=list(size=10),
+         paper_bgcolor = 'rgba(243, 243, 243,0.8)',plot_bgcolor = 'rgba(243, 243, 243,0.2)',
+         annotations = list(x = 0.05 , y = 1.03, text = "Compétences apparaissant dans plus de 10% des offres", showarrow = F, xref='paper', yref='paper'))
+```
+
+
+
+Un Data Engineer est quelqu’un ayant un background technique (en développement logiciel le plus fréquemment). Il va construire l’architecture du système Big Data et doit s’assurer de pouvoir **collecter, transformer et stocker les données** de différentes sources. Pour cela, il développe des solutions qui permettent de traiter un gros volume de data dans un temps limité. Il travaille en amont du Data Scientist.
+
+Concernant ses capacités techniques, 43% des offres demandent des connaissances en **cloud**. Ensuite, on retrouve les compétences "clés" du Data Engineer avec des connaissances en **ETL, API, Devops**. Aussi, des compétences en collecte et stockage des données. 
+
+On retrouve aussi des compétences en **machine learning** dans plus de 20% des offres alors que c'est la compétence "clé" du Data Scientist. En effet, les entreprises recherchent parfois des **profils polyvalents** de Data Scientist/Engineer. 
+
+&nbsp;
+
+
+```{r}
+recap_logiciels3$logiciels<-str_to_title(recap_logiciels3$logiciels)
+ggplotly(recap_logiciels3 %>% filter(total_freq>0.1) %>%ggplot(aes(x=reorder(logiciels,total_freq), y=total_freq)) +
+  geom_point(color="#46427C",size=3) + 
+  geom_segment( aes(x=logiciels, xend=logiciels, y=0, yend=total_freq),color="grey") + 
+  coord_flip() + 
+  theme_minimal() +
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank()))%>%
+  layout(title = 'Compétences informatiques',
+         xaxis = list(showgrid = FALSE, title="%"),
+         yaxis = list(showgrid = FALSE),
+         font=list(size=10),
+         paper_bgcolor = 'rgb(243, 247, 246)',plot_bgcolor = 'rgb(243, 247, 246)',
+         annotations = list(x = 0.08 , y = 1.03, text = "Compétences apparaissant dans plus de 20% des offres", showarrow = F, xref='paper', yref='paper'))
+```
+
+
+&nbsp;
+
+Concernant les compétences en informatique, on retrouve le langage **python** en première place, apparaissant dans presque 60% des annonces. Globalement, les compétences informatiques recherchées sont **assez similaires à celle d'un Data Scientist**. 
+
+
+&nbsp;
+
+&nbsp;
+
+<p align="center">
+<a href="http://mecen-univ-tours.fr/">
+<img src="mecen.png" height="40" width="80">
+</a>
+</p>

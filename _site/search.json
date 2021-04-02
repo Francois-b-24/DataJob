@@ -1,0 +1,26 @@
+{
+  "articles": [
+    {
+      "path": "about.html",
+      "title": "Fiches métier",
+      "author": [],
+      "contents": "\nGrâce aux résultats de nos analyses nous avons réalisé des fiches métier. Ces fiches métiers comprennent les compétences techniques, informatiques et les qualités humaines nécessaires pour chacun des trois postes. De plus, on retrouve les 10 mots les plus utilisés dans les annonces de chaque poste. Ainsi, ces mots clés peuvent être utilisés dans le CV afin que ce dernier soit retenu par l’algorithme de NLP utilisé par les ressources humaines lors du recrutement.\n \n\n\n \n\n\n \n\n\n \n \n\n \n\n\n\n\n",
+      "last_modified": "2021-04-02T16:50:31+02:00"
+    },
+    {
+      "path": "blog.html",
+      "title": "",
+      "author": [],
+      "contents": "\n\n\n\n",
+      "last_modified": "2021-04-02T17:01:46+02:00"
+    },
+    {
+      "path": "index.html",
+      "title": "Découvrez les métiers de la data !",
+      "author": [],
+      "contents": "\n\n \n\n \nAvec l’essor des nouvelles technologies qui ont permis le traitement d’un plus grand nombre de données, l’analyse de données a pris une part importante dans les entreprises. Suite à ce bouleversement technologique, de nouveaux métiers ont émergés à savoir : Data Enginer, Data Analyst et Data Scientist qui sont les 3 métiers emblématiques du champ d’expertise “data”. Cependant, on remarque que les entreprises n’ont pas forcément les mêmes considérations et les mêmes attentes pour ces différents postes. De ce fait, il nous a semblé judicieux de mener une analyse sur différentes offres de stage afin d’identifier les compétences les plus communément recherchées et les attentes générales pour les différents postes selon les entreprises.\nDe plus, le domaine des ressources humaines utilise de nos jours de plus en plus de techniques d’analyse textuelle afin de passer au crible les CV des différents candidats. De ce fait, avoir un CV avec les bons mots-clés, les bonnes compétences pour le poste recherché permet d’augmenter ses chances d’être sélectionné par l’algorithme en question. Ainsi, notre analyse s’avèrera utile pour les étudiants en recherche d’un stage dans le domaine de la data.\nNotre projet est constitué des parties suivantes :\nDescription des offres de stage\nDécouverte des métiers de la data\nCaractérisation des offres de stage\n               \nN’hésitez pas à nous rejoindre sur nos réseaux !\n   \n\n           \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "last_modified": "2021-04-02T17:01:14+02:00"
+    }
+  ],
+  "collections": ["posts/posts.json"]
+}
