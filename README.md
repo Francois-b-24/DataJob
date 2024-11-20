@@ -9,3 +9,5 @@ Ce projet utilise des technique de traitement du langage naturel (NLP) pour anal
 - Data Analyst
 
 Nous avons proposé une description des principaux métiers de la data en se basant sur les informations présentes dans les offres d'emploi du site [Indeed](https://fr.indeed.com/).
+
+Pour la création de ce site et l'application des techniques de traitement du langage naturel (NLP), nous avons utilisé le logiciel R.
